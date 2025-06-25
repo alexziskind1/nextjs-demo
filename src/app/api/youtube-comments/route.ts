@@ -18,10 +18,11 @@ export async function POST(request: NextRequest) {
     // Check for service account configuration
     const serviceAccountPath = process.env.GOOGLE_SERVICE_ACCOUNT_PATH;
     const serviceAccountJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+    const serviceAccountBase64 = process.env.GOOGLE_SERVICE_ACCOUNT_BASE64;
     
-    if (!serviceAccountPath && !serviceAccountJson) {
+    if (!serviceAccountPath && !serviceAccountJson && !serviceAccountBase64) {
       return NextResponse.json(
-        { error: 'Google service account not configured. Please set GOOGLE_SERVICE_ACCOUNT_JSON environment variable.' },
+        { error: 'Google service account not configured. Please set GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_SERVICE_ACCOUNT_BASE64 environment variable.' },
         { status: 500 }
       );
     }

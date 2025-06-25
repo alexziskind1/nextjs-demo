@@ -68,44 +68,129 @@ export class YouTubeService {
     try {
       let auth: GoogleAuth;
 
-      // Get service account from JSON environment variable
-      const serviceAccountJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-      if (serviceAccountJson) {
+      // Try base64 encoded service account first (more reliable for some platforms)
+      const serviceAccountBase64 = process.env.GOOGLE_SERVICE_ACCOUNT_BASE64;
+      if (serviceAccountBase64) {
         try {
+          console.log('Using base64 encoded service account');
+          const serviceAccountJson = Buffer.from(serviceAccountBase64, 'base64').toString('utf8');
           const credentials = JSON.parse(serviceAccountJson);
+          
+          // Validate required fields
+          const requiredFields = ['type', 'project_id', 'private_key', 'client_email'];
+          const missingFields = requiredFields.filter(field => !credentials[field]);
+          
+          if (missingFields.length > 0) {
+            throw new Error(`Service account JSON is missing required fields: ${missingFields.join(', ')}`);
+          }
+          
+          console.log('Service account project:', credentials.project_id);
+          console.log('Service account email:', credentials.client_email);
+          
           auth = new GoogleAuth({
             credentials,
             scopes: ['https://www.googleapis.com/auth/youtube.force-ssl']
           });
-        } catch (parseError) {
-          throw new Error('Invalid GOOGLE_SERVICE_ACCOUNT_JSON format. Please ensure it contains valid JSON.');
+        } catch (error) {
+          console.error('Base64 service account error:', error);
+          throw new Error(`Invalid GOOGLE_SERVICE_ACCOUNT_BASE64 format: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
-      } 
-      // Fallback method: Use service account file path
+      }
+      // Get service account from JSON environment variable
       else {
-        const serviceAccountPath = process.env.GOOGLE_SERVICE_ACCOUNT_PATH;
-        if (!serviceAccountPath) {
-          throw new Error('No service account configuration found. Please set GOOGLE_SERVICE_ACCOUNT_JSON environment variable with your service account JSON content.');
+        const serviceAccountJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+        if (serviceAccountJson) {
+          try {
+            // Add debugging for production
+            console.log('Using JSON service account');
+            console.log('Service account JSON length:', serviceAccountJson.length);
+            console.log('Service account JSON starts with:', serviceAccountJson.substring(0, 50));
+            console.log('Service account JSON ends with:', serviceAccountJson.substring(serviceAccountJson.length - 50));
+            
+            // Clean the JSON string - handle common production issues
+            let cleanedJson = serviceAccountJson.trim();
+            
+            // If the JSON is wrapped in quotes (common in some deployments), remove them
+            if (cleanedJson.startsWith('"') && cleanedJson.endsWith('"')) {
+              cleanedJson = cleanedJson.slice(1, -1);
+              console.log('Removed outer quotes from JSON');
+            }
+            
+            // Fix escaped quotes and newlines that might be double-escaped
+            cleanedJson = cleanedJson.replace(/\\"/g, '"').replace(/\\n/g, '\n');
+            
+            console.log('Cleaned JSON length:', cleanedJson.length);
+            console.log('Cleaned JSON starts with:', cleanedJson.substring(0, 50));
+            
+            const credentials = JSON.parse(cleanedJson);
+            
+            // Validate required fields
+            const requiredFields = ['type', 'project_id', 'private_key', 'client_email'];
+            const missingFields = requiredFields.filter(field => !credentials[field]);
+            
+            if (missingFields.length > 0) {
+              console.error('Missing required fields:', missingFields);
+              console.error('Available fields:', Object.keys(credentials));
+              throw new Error(`Service account JSON is missing required fields: ${missingFields.join(', ')}`);
+            }
+            
+            // Check private key format
+            if (!credentials.private_key.includes('BEGIN PRIVATE KEY')) {
+              console.error('Private key format issue - missing BEGIN PRIVATE KEY header');
+              console.error('Private key starts with:', credentials.private_key.substring(0, 50));
+            }
+            
+            console.log('Service account project:', credentials.project_id);
+            console.log('Service account email:', credentials.client_email);
+            console.log('Private key length:', credentials.private_key.length);
+            
+            auth = new GoogleAuth({
+              credentials,
+              scopes: ['https://www.googleapis.com/auth/youtube.force-ssl']
+            });
+          } catch (parseError) {
+            console.error('JSON Parse Error:', parseError);
+            console.error('Error details:', {
+              name: parseError instanceof Error ? parseError.name : 'Unknown',
+              message: parseError instanceof Error ? parseError.message : 'Unknown error',
+              stack: parseError instanceof Error ? parseError.stack : 'No stack trace'
+            });
+            console.error('Raw JSON (first 200 chars):', serviceAccountJson.substring(0, 200));
+            console.error('Raw JSON (last 200 chars):', serviceAccountJson.substring(Math.max(0, serviceAccountJson.length - 200)));
+            throw new Error(`Invalid GOOGLE_SERVICE_ACCOUNT_JSON format: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+          }
         }
+        // Fallback method: Use service account file path
+        else {
+          const serviceAccountPath = process.env.GOOGLE_SERVICE_ACCOUNT_PATH;
+          if (!serviceAccountPath) {
+            throw new Error('No service account configuration found. Please set GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_SERVICE_ACCOUNT_BASE64 environment variable with your service account content.');
+          }
 
-        // Resolve the path relative to project root
-        const fullPath = path.resolve(process.cwd(), serviceAccountPath);
-        
-        if (!fs.existsSync(fullPath)) {
-          throw new Error(`Service account file not found at: ${fullPath}. Consider using GOOGLE_SERVICE_ACCOUNT_JSON environment variable instead.`);
+          // Resolve the path relative to project root
+          const fullPath = path.resolve(process.cwd(), serviceAccountPath);
+          
+          if (!fs.existsSync(fullPath)) {
+            throw new Error(`Service account file not found at: ${fullPath}. Consider using GOOGLE_SERVICE_ACCOUNT_JSON environment variable instead.`);
+          }
+
+          auth = new GoogleAuth({
+            keyFile: fullPath,
+            scopes: ['https://www.googleapis.com/auth/youtube.force-ssl']
+          });
         }
-
-        auth = new GoogleAuth({
-          keyFile: fullPath,
-          scopes: ['https://www.googleapis.com/auth/youtube.force-ssl']
-        });
       }
 
+      console.log('Creating YouTube client...');
+      
       // Create YouTube API client using the auth object directly (like your working example)
-      return google.youtube({
+      const youtube = google.youtube({
         version: 'v3',
         auth
       });
+      
+      console.log('YouTube client created successfully');
+      return youtube;
     } catch (error: any) {
       console.error('Failed to create YouTube client:', error);
       throw new Error(`Authentication failed: ${error.message}`);

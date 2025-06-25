@@ -194,6 +194,68 @@ env:
    - The video owner has disabled comments
    - Try with a different video that allows comments
 
+### Production Deployment Issues:
+
+If you're experiencing authentication issues in production (works locally but fails when deployed), try these solutions:
+
+#### 1. Use the Production Preparation Script
+Run this command to properly format your service account for production:
+```bash
+npm run prepare-production google-service-account.json
+```
+
+This script will:
+- Validate your service account JSON
+- Output a properly formatted JSON string
+- Provide a base64-encoded alternative
+- Give you deployment-specific instructions
+
+#### 2. Base64 Encoding Alternative
+If the direct JSON approach fails in production, use base64 encoding:
+
+1. Generate base64 version:
+   ```bash
+   npm run prepare-production google-service-account.json
+   ```
+
+2. Set the base64 environment variable instead:
+   ```bash
+   GOOGLE_SERVICE_ACCOUNT_BASE64=your_base64_encoded_json_here
+   ```
+
+#### 3. Common Production Issues:
+
+**JSON Parsing Errors:**
+- Environment variables might wrap JSON in extra quotes
+- Line breaks in private keys can cause issues
+- Special characters might need escaping
+
+**Platform-Specific Solutions:**
+
+**Vercel:**
+```bash
+# Use the Vercel CLI for reliable environment variable setting
+vercel env add GOOGLE_SERVICE_ACCOUNT_JSON
+# Paste the JSON when prompted
+```
+
+**Netlify:**
+- Use the Netlify UI for environment variables
+- Copy the exact JSON output from the preparation script
+
+**Railway/Render/Heroku:**
+- Use base64 encoding for more reliable deployment
+- Set `GOOGLE_SERVICE_ACCOUNT_BASE64` instead of the JSON version
+
+#### 4. Debug in Production
+The app includes detailed logging. Check your deployment logs for:
+- Service account JSON length
+- Parse errors with specific details
+- Missing fields in the service account
+- Private key format issues
+
+If you see `"Service account JSON length: 0"`, the environment variable is not being set correctly in your deployment platform.
+
 ## API Quotas
 
 YouTube Data API v3 has the following default quotas:

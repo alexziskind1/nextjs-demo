@@ -10,7 +10,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "convert-service-account": "node scripts/convert-service-account.js"
+    "convert-service-account": "node scripts/convert-service-account.js",
+    "prepare-production": "node scripts/prepare-service-account-for-production.js"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.1",
