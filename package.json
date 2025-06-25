@@ -9,16 +9,21 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "convert-service-account": "node scripts/convert-service-account.js"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.1",
+    "google-auth-library": "^10.1.0",
+    "googleapis": "^150.0.1",
     "next": "15.2.4",
+    "papaparse": "^5.5.3",
     "react": "^19",
     "react-dom": "^19"
   },
   "devDependencies": {
     "@types/node": "^22",
+    "@types/papaparse": "^5.3.16",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "postcss": "^8",
