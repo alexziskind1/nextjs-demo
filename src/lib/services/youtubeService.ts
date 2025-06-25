@@ -199,7 +199,7 @@ export class YouTubeService {
 
   static async fetchComments(
     videoId: string, 
-    maxResults: number = 100
+    maxResults: number = 500
   ): Promise<YouTubeCommentsResult> {
     try {
       const youtube = await this.createYouTubeClient();
@@ -226,44 +226,78 @@ export class YouTubeService {
         };
       }
 
-      // Fetch comments (using similar pattern to your working code)
-      const commentsResponse = await youtube.commentThreads.list({
-        part: ['snippet'],
-        videoId: videoId,
-        maxResults: Math.min(maxResults, 100), // YouTube API limit
-        order: 'relevance'
-      });
+      // Fetch comments with pagination
+      const allComments: YouTubeComment[] = [];
+      let nextPageToken: string | undefined = undefined;
+      let totalFetched = 0;
+      const batchSize = 100; // YouTube API maximum per request
 
-      if (!commentsResponse.data.items) {
-        return { 
-          success: true, 
-          comments: [], 
-          videoTitle,
-          totalComments: 0 
-        };
+      console.log(`Starting to fetch ${maxResults} comments for video: ${videoTitle}`);
+
+      while (totalFetched < maxResults) {
+        const remainingToFetch = Math.min(batchSize, maxResults - totalFetched);
+        
+        const commentsResponse: any = await youtube.commentThreads.list({
+          part: ['snippet', 'replies'],
+          videoId: videoId,
+          maxResults: remainingToFetch,
+          order: 'relevance',
+          pageToken: nextPageToken
+        });
+
+        if (!commentsResponse.data.items || commentsResponse.data.items.length === 0) {
+          break; // No more comments available
+        }
+
+        // Process this batch of comments
+        const batchComments: YouTubeComment[] = commentsResponse.data.items.map((item: any) => {
+          const snippet = item.snippet?.topLevelComment?.snippet;
+          const comment: YouTubeComment = {
+            id: item.id || '',
+            author: snippet?.authorDisplayName || 'Unknown',
+            text: snippet?.textDisplay || '',
+            publishedAt: snippet?.publishedAt || '',
+            likeCount: snippet?.likeCount || 0
+          };
+
+          // Add replies if they exist
+          if (item.replies?.comments) {
+            comment.replies = item.replies.comments.map((replyItem: any) => ({
+              id: replyItem.id || '',
+              author: replyItem.snippet?.authorDisplayName || 'Unknown',
+              text: replyItem.snippet?.textDisplay || '',
+              publishedAt: replyItem.snippet?.publishedAt || '',
+              likeCount: replyItem.snippet?.likeCount || 0
+            }));
+          }
+          
+          return comment;
+        });
+
+        allComments.push(...batchComments);
+        totalFetched += batchComments.length;
+
+        console.log(`Fetched ${totalFetched}/${maxResults} comments (batch: ${batchComments.length})`);
+
+        // Check if there are more pages
+        nextPageToken = commentsResponse.data.nextPageToken;
+        if (!nextPageToken) {
+          break; // No more pages available
+        }
+
+        // Add a small delay between requests to be respectful to the API
+        // Use longer delay for larger requests to avoid rate limiting
+        const delay = maxResults > 1000 ? 200 : 100;
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
 
-      const comments: YouTubeComment[] = commentsResponse.data.items.map(item => {
-        const snippet = item.snippet?.topLevelComment?.snippet;
-        const comment: YouTubeComment = {
-          id: item.id || '',
-          author: snippet?.authorDisplayName || 'Unknown',
-          text: snippet?.textDisplay || '',
-          publishedAt: snippet?.publishedAt || '',
-          likeCount: snippet?.likeCount || 0
-        };
-
-        // Note: Replies are not fetched in this simple implementation
-        // to match your working code pattern
-        
-        return comment;
-      });
+      console.log(`Completed fetching ${allComments.length} comments for video: ${videoTitle}`);
 
       return { 
         success: true, 
-        comments, 
+        comments: allComments, 
         videoTitle,
-        totalComments: comments.length 
+        totalComments: allComments.length 
       };
 
     } catch (error: any) {

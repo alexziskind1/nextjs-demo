@@ -13,7 +13,7 @@ export class YouTubeApiService {
 
   static async fetchComments(
     url: string, 
-    maxResults: number = 100
+    maxResults: number = 500
   ): Promise<FetchCommentsResponse> {
     try {
       const response = await fetch(`${this.API_BASE}/youtube-comments`, {

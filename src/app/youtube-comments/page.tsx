@@ -6,12 +6,13 @@ import { YouTubeComment } from '@/lib/services/youtubeService';
 
 export default function YouTubeCommentsPage() {
   const [url, setUrl] = useState('');
-  const [maxResults, setMaxResults] = useState(50);
+  const [maxResults, setMaxResults] = useState(500);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [comments, setComments] = useState<YouTubeComment[]>([]);
   const [videoTitle, setVideoTitle] = useState('');
   const [totalComments, setTotalComments] = useState(0);
+  const [fetchProgress, setFetchProgress] = useState<{current: number, total: number} | null>(null);
 
   const handleFetchComments = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +29,7 @@ export default function YouTubeCommentsPage() {
     setComments([]);
     setVideoTitle('');
     setTotalComments(0);
+    setFetchProgress(null);
 
     const result = await YouTubeApiService.fetchComments(url, maxResults);
     
@@ -40,6 +42,7 @@ export default function YouTubeCommentsPage() {
     }
     
     setLoading(false);
+    setFetchProgress(null);
   };
 
   const handleDownloadCSV = () => {
@@ -102,6 +105,12 @@ export default function YouTubeCommentsPage() {
                   <option value={25}>25</option>
                   <option value={50}>50</option>
                   <option value={100}>100</option>
+                  <option value={250}>250</option>
+                  <option value={500}>500</option>
+                  <option value={1000}>1,000</option>
+                  <option value={2500}>2,500</option>
+                  <option value={5000}>5,000</option>
+                  <option value={10000}>10,000</option>
                 </select>
               </div>
               
@@ -111,7 +120,11 @@ export default function YouTubeCommentsPage() {
                   disabled={loading}
                   className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-medium py-2 px-4 rounded-md transition duration-200 ease-in-out"
                 >
-                  {loading ? 'Fetching...' : 'Fetch Comments'}
+                  {loading ? (
+                    maxResults > 100 ? 
+                      `Fetching ${maxResults.toLocaleString()} comments...` : 
+                      'Fetching...'
+                  ) : 'Fetch Comments'}
                 </button>
               </div>
             </div>
@@ -122,6 +135,18 @@ export default function YouTubeCommentsPage() {
             <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
               <p className="text-red-800 text-center">
                 {error}
+              </p>
+            </div>
+          )}
+
+          {/* Progress Display */}
+          {loading && maxResults > 100 && (
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-blue-800 text-center mb-2">
+                Fetching comments... This may take a moment for large requests.
+              </p>
+              <p className="text-blue-600 text-center text-sm">
+                YouTube API limits us to 100 comments per request, so we need to make multiple requests for {maxResults.toLocaleString()} comments.
               </p>
             </div>
           )}

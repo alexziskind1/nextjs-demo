@@ -4,7 +4,7 @@ import { YouTubeService } from '@/lib/services/youtubeService';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { url, maxResults = 100 } = body;
+    const { url, maxResults = 500 } = body;
 
     // Validate the YouTube URL
     const validation = YouTubeService.validateYouTubeUrl(url);
